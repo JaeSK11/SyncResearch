@@ -1,0 +1,80 @@
+# Environment and secrets
+.env
+.env.*
+*.env
+!.env.example  # Include an example env file
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+rrenv/
+venv/
+env/
+ENV/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Data directories (contain your actual papers)
+data/
+!data/.gitkeep  # Keep the folder structure
+models/cache/
+models/custom/
+processed/
+embeddings/
+chunks/
+
+# Database files
+chroma_db/
+*.db
+*.sqlite
+*.sqlite3
+
+# MinIO credentials and data
+minio_data/
+.minio.sys/
+
+# Logs
+logs/
+*.log
+.bash_history
+
+# Model caches
+.cache/
+~/.cache/huggingface/
+*.bin
+*.safetensors
+*.ckpt
+*.pth
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Test outputs
+test_output/
+*.pdf
+*.json
+!requirements.json  # If you have a requirements file
+*.parquet
+*.npz
+
+# Tests can stay in repo, but exclude test outputs
+tests/test_output/
+tests/*.log
+tests/
+
+# ReadME
+InternalREADME.md
