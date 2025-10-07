@@ -5,6 +5,11 @@ from datetime import datetime
 import os
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling.datamodel.base_models import InputFormat
+import warnings
+
+# Suppress PyTorch CPU warnings
+warnings.filterwarnings('ignore', message='.*pin_memory.*')
+warnings.filterwarnings('ignore', message='.*Accelerator device: \'cpu\'.*')
 
 class PaperProcessor:
     def __init__(self, output_dir: str = "data/processed", use_gpu: bool = False):
@@ -85,19 +90,51 @@ class PaperProcessor:
         sections = []
         current_section = None
         
+        # Common section headers in papers
+        section_keywords = [
+            'abstract', 'introduction', 'background', 'related work',
+            'methodology', 'methods', 'approach', 'implementation',
+            'results', 'experiments', 'evaluation', 'analysis',
+            'discussion', 'conclusion', 'references', 'acknowledgment'
+        ]
+        
         for element in doc_output.get("texts", []):
-            # Check if element is a heading
-            if element.get("type") == "heading":
+            text = element.get("text", "").strip()
+            text_lower = text.lower()
+            
+            # Check if this looks like a section header
+            # 1. Check by type (if available)
+            is_heading = element.get("type") == "heading"
+            
+            # 2. Check by content (fallback)
+            if not is_heading:
+                # Short text (< 100 chars), all caps, or matches section keywords
+                is_short = len(text) < 100
+                is_caps = text.isupper() and len(text) > 2
+                matches_keyword = any(keyword in text_lower for keyword in section_keywords)
+                is_numbered = text[:5].strip() and text[0].isdigit() and '.' in text[:10]
+                
+                is_heading = (is_short and (is_caps or matches_keyword or is_numbered))
+            
+            if is_heading:
+                # Save previous section
+                if current_section and current_section["content"]:
+                    sections.append(current_section)
+                
+                # Start new section
                 level = element.get("level", 1)
                 current_section = {
-                    "title": element.get("text"),
+                    "title": text,
                     "level": level,
                     "content": []
                 }
-                sections.append(current_section)
             elif current_section:
-                current_section["content"].append(element.get("text", ""))
-                
+                current_section["content"].append(text)
+        
+        # Don't forget last section
+        if current_section and current_section["content"]:
+            sections.append(current_section)
+        
         return sections
     
     def _extract_tables(self, doc_output: Dict) -> List[Dict]:

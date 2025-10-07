@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Upload, Send, FileText, CheckCircle, XCircle, Loader } from 'lucide-react';
+import { Upload, Send, FileText, CheckCircle, XCircle, Loader, Trash2 } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_API_BASE
+const API_BASE = 'http://localhost:8080'
 
 export default function ResearchRAG() {
+  console.log('🔗 API_BASE value:', API_BASE);
+  console.log('🔗 Full URL:', `${API_BASE}/papers/`);
   const [papers, setPapers] = useState([]);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -12,6 +14,7 @@ export default function ResearchRAG() {
   const [apiStatus, setApiStatus] = useState({ minio: 'unknown', chromadb: 'unknown', vllm: 'unknown' });
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const [paperStatuses, setPaperStatuses] = useState({});
 
   useEffect(() => {
     checkHealth();
@@ -32,15 +35,78 @@ export default function ResearchRAG() {
     }
   };
 
-  const loadPapers = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/papers`);
-      const data = await res.json();
-      setPapers(data.papers || []);
-    } catch (err) {
-      console.error('Failed to load papers:', err);
+const loadPapers = async () => {
+  try {
+    console.log('🔄 Fetching papers from:', `${API_BASE}/papers/`);
+    const res = await fetch(`${API_BASE}/papers/`);
+    console.log('📡 Response status:', res.status, res.statusText);
+    
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
     }
-  };
+    
+    const data = await res.json();
+    console.log('📄 Papers API response:', data);
+    
+    // Backend returns array directly, not {papers: [...]}
+    const papersArray = Array.isArray(data) ? data : (data.papers || []);
+    console.log('📄 Number of papers:', papersArray.length);
+    
+    setPapers(papersArray);
+    
+    // Load ALL statuses first, THEN update state once
+    const statusPromises = papersArray.map(paper => 
+      fetch(`${API_BASE}/papers/${paper.paper_id}/status`)
+        .then(res => res.json())
+        .then(status => ({ paperId: paper.paper_id, status }))
+        .catch(err => {
+          console.error(`Failed to load status for ${paper.paper_id}:`, err);
+          return null;
+        })
+    );
+    
+    const statusResults = await Promise.all(statusPromises);
+    
+    // Batch update: set all statuses at once
+    const newStatuses = {};
+    statusResults.forEach(result => {
+      if (result) {
+        newStatuses[result.paperId] = result.status;
+      }
+    });
+    
+    setPaperStatuses(newStatuses);
+    console.log('✅ All statuses loaded:', Object.keys(newStatuses).length);
+    
+  } catch (err) {
+    console.error('❌ Failed to load papers:', err);
+    console.error('❌ Error details:', err.message);
+  }
+};
+
+// Add function to load paper statuses
+const loadPaperStatus = async (paperId) => {
+  try {
+    const res = await fetch(`${API_BASE}/papers/${paperId}/status`);
+    const data = await res.json();
+    console.log('✅ Status loaded for', paperId, ':', data); 
+    setPaperStatuses(prev => ({ ...prev, [paperId]: data }));
+  } catch (err) {
+    console.error(`Failed to load status for ${paperId}:`, err);
+  }
+};
+
+  // Add StatusStep component
+  const StatusStep = ({ completed, label }) => (
+    <div className="status-step">
+      <div className={`status-dot ${completed ? 'completed' : 'pending'}`}>
+        {completed ? '✓' : '○'}
+      </div>
+      <span className={`status-label ${completed ? 'completed' : 'pending'}`}>
+        {label}
+      </span>
+    </div>
+  );
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -57,7 +123,7 @@ export default function ResearchRAG() {
       });
       
       if (res.ok) {
-        await loadPapers();
+        await loadPapers(); // This now loads statuses too
         setMessages(prev => [...prev, {
           type: 'system',
           content: `Successfully uploaded "${file.name}"`,
@@ -91,7 +157,10 @@ export default function ResearchRAG() {
       const res = await fetch(`${API_BASE}/query/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, n_results: 5 }),
+        body: JSON.stringify({ 
+          question, 
+          n_results: 5
+        }),
       });
 
       const data = await res.json();
@@ -121,14 +190,47 @@ export default function ResearchRAG() {
     }
   };
 
-  const StatusIndicator = ({ status }) => {
-    if (status === 'connected') return <CheckCircle className="icon icon-sm icon-green" />;
-    if (status === 'disconnected') return <XCircle className="icon icon-sm icon-red" />;
-    return <div className="status-dot" />;
-  };
+  const handleDelete = async (paperId) => {
+  if (!confirm(`Delete paper "${paperId}"? This cannot be undone.`)) {
+    return;
+  }
 
-  return (
-    <div className="app-container">
+  try {
+    const res = await fetch(`${API_BASE}/papers/${paperId}`, {
+      method: 'DELETE',
+    });
+
+    if (res.ok) {
+      setMessages(prev => [...prev, {
+        type: 'system',
+        content: `Successfully deleted "${paperId}"`,
+        timestamp: new Date()
+      }]);
+      await loadPapers();
+    } else {
+      throw new Error('Delete failed');
+    }
+  } catch (err) {
+    setMessages(prev => [...prev, {
+      type: 'error',
+      content: `Failed to delete "${paperId}": ${err.message}`,
+      timestamp: new Date()
+    }]);
+  }
+};
+
+const StatusIndicator = ({ status }) => {
+  if (status === 'connected') return <CheckCircle className="icon icon-sm icon-green" />;
+  if (status === 'disconnected') return <XCircle className="icon icon-sm icon-red" />;
+  return <div className="status-dot" />;
+};
+
+// ADD THIS BEFORE RETURN
+console.log('🎨 Rendering with papers:', papers.length, papers);
+console.log('🎨 Paper statuses:', Object.keys(paperStatuses).length);
+
+return (
+  <div className="app-container">
       <header className="header">
         <div className="header-content">
           <div className="header-title">
@@ -183,21 +285,58 @@ export default function ResearchRAG() {
             {papers.length === 0 ? (
               <p className="no-papers">No papers uploaded yet</p>
             ) : (
-              papers.map((paper) => (
-                <div key={paper.paper_id} className="paper-item">
-                  <div className="paper-content">
-                    <FileText className="icon icon-blue" />
-                    <div className="paper-info">
-                      <p className="paper-title">
-                        {paper.title !== "Unknown" ? paper.title : paper.paper_id}
-                      </p>
-                      {paper.num_chunks > 0 && (
-                        <p className="paper-chunks">{paper.num_chunks} chunks</p>
-                      )}
+              papers.map((paper) => {
+                const status = paperStatuses[paper.paper_id];
+                const isComplete = status?.steps.chromadb;
+                
+                return (
+                  <div key={paper.paper_id} className="paper-item">
+                    <div className="paper-header">
+                      <FileText className={`icon ${isComplete ? 'icon-green' : 'icon-blue'}`} />
+                      <div className="paper-info">
+                        <p className="paper-title">
+                          {paper.title !== "Unknown" ? paper.title : paper.paper_id}
+                        </p>
+                        {status?.details?.num_chunks && (
+                          <p className="paper-chunks">{status.details.num_chunks} chunks</p>
+                        )}
+                      </div>
+                        <button
+                          onClick={() => handleDelete(paper.paper_id)}
+                          className="delete-button"
+                          title="Delete paper"
+                        >
+                          <Trash2 className="icon icon-sm" />
+                        </button>
                     </div>
+                    
+                    {status && (
+                      <div className="paper-status">
+                        <StatusStep 
+                          completed={status.steps.docling} 
+                          label="Processed" 
+                        />
+                        <StatusStep 
+                          completed={status.steps.minio} 
+                          label="Stored" 
+                        />
+                        <StatusStep 
+                          completed={status.steps.chunked} 
+                          label="Chunked" 
+                        />
+                        <StatusStep 
+                          completed={status.steps.embedded} 
+                          label="Embedded" 
+                        />
+                        <StatusStep 
+                          completed={status.steps.chromadb} 
+                          label="Indexed" 
+                        />
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </aside>
