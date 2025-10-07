@@ -1,340 +1,222 @@
 # SyncResearch
-This project implements a  Retrieval-Augmented Generation (RAG) system designed specifically for analyzing and comparing academic research papers. The system enables semantic querying across multiple papers, with special emphasis on comparative analysis between different research works.
 
-### Core Capabilities
-- **Document Processing**: Intelligent extraction from complex academic PDFs
-- **Semantic Search**: Vector-based similarity search across research papers
-- **Multi-Paper Analysis**: Comparative analysis between different papers
-- **Self-Hosted LLM**: Complete data privacy with local inference
-- **Scalable Storage**: Cloud-based document management via S3
+A self-hosted RAG (Retrieval-Augmented Generation) system for analyzing and querying academic research papers locally with complete data privacy.
 
-### Key Innovation
-The system solves the fundamental challenge of multi-paper comparison queries through a multi-agent architecture, where specialized agents handle paper-specific retrieval before synthesis.
+## ✨ Features
 
-## Project Architecture (ResearchRetrieval)
+- 📄 **PDF Analysis** - Upload and query research papers using natural language
+- 🔍 **Semantic Search** - Vector-based similarity search across documents
+- 🤖 **Local LLM** - Self-hosted Llama 3.1 8B via vLLM (no API costs)
+- 🔒 **Complete Privacy** - All data and processing stays on your hardware
+- 💾 **Persistent Storage** - MinIO (S3-compatible) + ChromaDB vector database
+- 🌐 **Modern UI** - Clean React interface with real-time health monitoring
 
-### System Components
+## 🚀 Quick Start
 
-```
-┌─────────────────────────────────────────────────────┐
-│                  User Interface Layer               │
-│                    FastAPI Server                   │
-└────────────────────┬────────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────────┐
-│              Multi-Agent Orchestrator               │
-│                                                      │
-│  ┌─────────────────────────────────────────┐       │
-│  │     Agent 1: Query Decomposer           │       │
-│  │     Model: Granite-3.0-8B               │       │
-│  │     Role: Parse & structure queries     │       │
-│  └─────────────────┬───────────────────────┘       │
-│                    │                                │
-│  ┌─────────────────▼───────────────────────┐       │
-│  │  Agent 2 & 3: Paper Analyzers (Parallel)│       │
-│  │  Model: Llama-3.1-8B                    │       │
-│  │  Role: Paper-specific analysis          │       │
-│  └─────────────────┬───────────────────────┘       │
-│                    │                                │
-│  ┌─────────────────▼───────────────────────┐       │
-│  │    Agent 4: Comparison Synthesizer      │       │
-│  │    Model: Llama-3.1-8B                  │       │
-│  │    Role: Generate comparative analysis  │       │
-│  └─────────────────────────────────────────┘       │
-└──────────────────────────────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────────┐
-│                 Data Processing Layer               │
-│                                                      │
-│  ┌────────────────────────────────────────┐        │
-│  │         Docling Engine                 │        │
-│  │  - PDF parsing & structure extraction  │        │
-│  │  - Table/figure detection              │        │
-│  │  - Section hierarchy preservation      │        │
-│  └────────────────────────────────────────┘        │
-│                                                      │
-│  ┌────────────────────────────────────────┐        │
-│  │      LangChain Components              │        │
-│  │  - Document chunking strategies        │        │
-│  │  - Prompt template management          │        │
-│  │  - Chain orchestration                 │        │
-│  └────────────────────────────────────────┘        │
-└──────────────────────────────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────────┐
-│                  Storage Layer                      │
-│                                                      │
-│  ┌────────────────────────────────────────┐        │
-│  │           AWS S3 Buckets               │        │
-│  │  /raw-papers     - Original PDFs       │        │
-│  │  /processed      - Docling outputs     │        │
-│  │  /embeddings     - Vector cache        │        │
-│  │  /metadata       - Paper metadata      │        │
-│  └────────────────────────────────────────┘        │
-│                                                      │
-│  ┌────────────────────────────────────────┐        │
-│  │       ChromaDB Vector Store            │        │
-│  │  - Paper-specific collections          │        │
-│  │  - Semantic search indices             │        │
-│  │  - Metadata filtering                  │        │
-│  └────────────────────────────────────────┘        │
-└──────────────────────────────────────────────────────┘
+### Prerequisites
+
+- NVIDIA GPU (tested on RTX 3090, 24GB VRAM)
+- Docker with NVIDIA Container Runtime
+- Node.js 20+
+- Python 3.10+
+
+### Installation
+
+1. **Clone the repository**
+```bash
+git clone https://github.com/yourusername/SyncResearch.git
+cd SyncResearch
 ```
 
-## Data Flow Pipeline
-
-### Document Ingestion Flow
-
-```
-1. PDF Upload
-   └─> S3 Raw Storage
-       └─> Docling Processing
-           ├─> Structure Extraction
-           ├─> Section Detection
-           ├─> Table/Figure Extraction
-           └─> Metadata Generation
-               └─> JSON Output
-                   └─> S3 Processed Storage
-2. Vectorization Pipeline
-   └─> Load Processed JSON
-       └─> Chunking Strategy
-           ├─> Hierarchical Chunks
-           ├─> Semantic Chunks
-           └─> Overlap Management
-               └─> Embedding Generation
-                   ├─> Batch Processing
-                   └─> Vector Creation
-                       └─> ChromaDB Storage
-                           ├─> Collection Creation
-                           └─> Metadata Indexing
+2. **Set up Python environment**
+```bash
+python -m venv rrenv
+source rrenv/bin/activate
+pip install -r requirements.txt
 ```
 
-### Query Processing Flow
-
-```
-1. User Query Reception
-   └─> FastAPI Endpoint
-       └─> Request Validation
-           └─> Correlation ID Assignment
-2. Multi-Agent Processing
-   └─> Query Decomposer (Granite)
-       ├─> Intent Classification
-       ├─> Paper Identification
-       └─> Task Structuring
-           └─> Parallel Paper Analysis
-               ├─> Paper X Analyzer (Llama)
-               │   ├─> Vector Search
-               │   ├─> Context Assembly
-               │   └─> Analysis Generation
-               │
-               └─> Paper Y Analyzer (Llama)
-                   ├─> Vector Search
-                   ├─> Context Assembly
-                   └─> Analysis Generation
-                       └─> Comparison Synthesizer (Llama)
-                           ├─> Analysis Integration
-                           ├─> Difference Identification
-                           └─> Final Response Generation
-3. Response Delivery
-   └─> JSON Formatting
-       └─> Source Attribution
-           └─> Client Response
+3. **Configure environment**
+```bash
+cp .env.example .env
+# Edit .env with your MinIO credentials
 ```
 
-### Chunking Strategy
-
-Respects paper structure - chunks by section (abstract, methodology, results)
-Adds bidirectional context - includes preview/review text
-Section-aware sizing - abstracts stay together, results are smaller chunks
-Special handling - tables, figures, equations get dedicated chunks
-Metadata-rich - enables "search only in methodology" type queries
-
-Prevents
-Lost context: Breaks mid-argument or mid-explanation
-Section boundaries: Doesn't respect paper structure
-Reference confusion: Splits text from its citations
-
-```python
-# Hierarchical Structure
-Paper
-├── Overview Chunk (500 tokens)
-│   └── Title, Abstract, Authors
-├── Section Chunks (1000 tokens)
-│   ├── Introduction
-│   ├── Methodology
-│   ├── Results
-│   └── Conclusion
-├── Subsection Chunks (500 tokens)
-│   └── Detailed content
-└── Special Chunks
-    ├── Table Chunks
-    ├── Figure Captions
-    └── Reference Chunks
+4. **Install frontend dependencies**
+```bash
+cd frontend
+npm install
+cd ..
 ```
+
+### Running the System
+
+**Start all services:**
+
+```bash
+# 1. Start vLLM server (loads Llama 3.1 8B)
+cd vllm-server
+make llama31
+
+# 2. Start FastAPI backend (in new terminal)
+cd ..
+source rrenv/bin/activate
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8080
+
+# 3. Start React frontend (in new terminal)
+cd frontend
+npm run dev
+```
+
+**Access the application:**
+- Frontend: http://localhost:5173
+- API Docs: http://localhost:8080/docs
+- vLLM: http://localhost:8000
+
+## 📖 Usage
+
+1. **Upload a research paper** - Click "Upload PDF" and select a paper
+2. **Wait for processing** - The system extracts structure and creates embeddings
+3. **Ask questions** - Type queries like:
+   - "What is the main contribution of this paper?"
+   - "Explain the methodology used"
+   - "What are the key results?"
+4. **View sources** - See which paper sections informed the answer
+
+## 🛠️ Tech Stack
+
+**Backend:**
+- [vLLM](https://github.com/vllm-project/vllm) - High-performance LLM inference
+- [FastAPI](https://fastapi.tiangolo.com/) - REST API framework
+- [ChromaDB](https://www.trychroma.com/) - Vector database
+- [Docling](https://github.com/DS4SD/docling) - PDF structure extraction
+- [MinIO](https://min.io/) - S3-compatible object storage
+
+**Frontend:**
+- [React](https://react.dev/) - UI framework
+- [Vite](https://vitejs.dev/) - Build tool
+- [Lucide](https://lucide.dev/) - Icons
+
+**Models:**
+- Llama 3.1 8B Instruct (LLM)
+- BAAI/bge-base-en-v1.5 (Embeddings)
+
+## 🏗️ Architecture
+
+```
+┌─────────────────┐
+│  React Frontend │
+└────────┬────────┘
+         │
+┌────────▼────────┐      ┌──────────────┐
+│  FastAPI Server │◄────►│ MinIO Storage│
+└────────┬────────┘      └──────────────┘
+         │
+    ┌────┴────┐
+    │         │
+┌───▼───┐ ┌──▼──────┐
+│ChromaDB│ │vLLM     │
+│Vectors │ │Llama 3.1│
+└────────┘ └─────────┘
+```
+
+## 📁 Project Structure
+
+```
+SyncResearch/
+├── api/                  # FastAPI backend
+│   ├── routes/          # API endpoints
+│   └── models/          # Pydantic schemas
+├── frontend/            # React application
+├── document_processing/ # PDF parsing & chunking
+├── embeddings_module/   # Vector generation
+├── vectordb/           # ChromaDB operations
+├── storage/            # MinIO client
+├── rag_pipeline/       # RAG implementation
+└── vllm-server/        # LLM inference setup
+```
+
+## 🔮 Roadmap
+
+### ✅ Current (v1.0)
+- [x] Single-paper RAG queries
+- [x] PDF upload and processing
+- [x] Local LLM inference
+- [x] Web interface
+- [x] Source attribution
+
+### 🚧 Phase 2 (Multi-Agent)
+- [ ] Query decomposition with Granite 3.0
+- [ ] Parallel paper analysis
+- [ ] Multi-paper comparison
+- [ ] Advanced comparison synthesis
+
+### 📋 Phase 3 (Advanced)
+- [ ] Citation network analysis
+- [ ] GPU-accelerated embeddings
+- [ ] Graph RAG implementation
+- [ ] Figure/diagram processing
+
+## ⚙️ Configuration
+
+Key environment variables (`.env`):
+
+```bash
+# MinIO Storage
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET=research-papers
+
+# vLLM
+VLLM_URL=http://localhost:8000
+
+# App
+DEBUG_MODE=False
+```
+
+## 🧪 Testing
+
+```bash
+# Run tests
+pytest tests/
+
+# Test specific component
+pytest tests/test_rag.py -v
+```
+
+## 📊 Performance
+
+- **Query Latency:** ~2.5s end-to-end
+- **LLM Speed:** 25-30 tokens/second
+- **Embedding:** ~45 chunks/second (CPU)
+- **Concurrent Users:** 1-5 (single GPU)
+
+## 🤝 Contributing
+
+Contributions welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📝 License
+
+MIT License - see [LICENSE](LICENSE) file for details
+
+## 🙏 Acknowledgments
+
+- Built with [vLLM](https://github.com/vllm-project/vllm) for efficient LLM inference
+- PDF processing powered by [Docling](https://github.com/DS4SD/docling)
+- Inspired by research in retrieval-augmented generation
+
+## 📮 Contact
+
+Questions? Open an issue or reach out:
+- GitHub Issues: [Project Issues](https://github.com/yourusername/SyncResearch/issues)
+- Email: your.email@example.com
 
 ---
 
-## Library Stack & Justification
-
-### Core Libraries
-
-#### 1. **vLLM** (LLM Inference Engine)
-- **Purpose**: High-performance local LLM inference
-- **Why**: 
-  - PagedAttention for 24x higher throughput than HuggingFace
-  - Optimized for RTX 3090's memory constraints
-  - OpenAI-compatible API for easy integration
-- **Benefits**:
-  - Automatic batching for multiple requests
-  - Continuous batching for optimal GPU utilization
-  - Memory-efficient KV cache management
-
-#### 2. **Docling** (Document Processing)
-- **Purpose**: Academic paper structure extraction
-- **Why**:
-  - Specifically designed for complex academic layouts
-  - Preserves document hierarchy and relationships
-  - Handles tables, figures, equations effectively
-- **Benefits**:
-  - Better than PyPDF2/pdfplumber for research papers
-  - Structured JSON output ready for vectorization
-  - Maintains citation and reference integrity
-
-#### 3. **LangChain** (RAG Framework)
-- **Purpose**: RAG pipeline orchestration
-- **Why**:
-  - Extensive ecosystem of document loaders
-  - Built-in chunking strategies
-  - Seamless vector store integration
-- **Benefits**:
-  - Reduces boilerplate code by 70%
-  - Standardized interfaces for components
-  - Active community and documentation
-
-#### 4. **ChromaDB** (Vector Database)
-- **Purpose**: Semantic similarity search
-- **Why**:
-  - Simple local deployment
-  - No external dependencies
-  - Good performance for <1M vectors
-- **Benefits**:
-  - Zero configuration setup
-  - Metadata filtering capabilities
-  - Persistent storage to disk
-  - Free and open source
-
-#### 5. **FastAPI** (Web Framework)
-- **Purpose**: REST API server
-- **Why**:
-  - Native async/await support
-  - Automatic API documentation
-  - High performance (Starlette + Pydantic)
-- **Benefits**:
-  - Type validation at runtime
-  - Interactive docs at `/docs`
-  - WebSocket support for streaming
-  - Easy deployment with Docker
-
-#### 6. **HuggingFace Embeddings** (Text Vectorization)
-- **Purpose**: Convert text to semantic vectors
-- **Why**:
-  - Local execution (no API costs)
-  - BAAI/bge models optimized for retrieval
-  - CUDA acceleration on RTX 3090
-- **Benefits**:
-  - Complete data privacy
-  - No rate limits
-  - Consistent performance
-  - Free to use
-
-### Supporting Libraries
-
-#### 7. **Boto3** (AWS SDK)
-- **Purpose**: S3 interaction
-- **Why**: Native AWS integration
-- **Benefits**: Reliable, well-documented, handles retries
-
-#### 8. **Pydantic** (Data Validation)
-- **Purpose**: Request/response validation
-- **Why**: Type safety and automatic validation
-- **Benefits**: Prevents runtime errors, auto-generates schemas
-
-#### 9. **Pandas** (Data Manipulation)
-- **Purpose**: Parquet file handling
-- **Why**: Efficient columnar data operations
-- **Benefits**: Fast filtering, aggregation for chunk metadata
-
-#### 10. **Structlog** (Logging)
-- **Purpose**: Structured JSON logging
-- **Why**: Essential for multi-agent tracing
-- **Benefits**: Correlation IDs, performance metrics, error tracking
-
----
-
-## Design Decisions & Rationale
-
-### 1. Multi-Agent Architecture
-
-**Problem**: Single-query embeddings cannot effectively capture multi-paper comparison requests.
-
-**Solution**: Decompose queries into paper-specific sub-queries, process in parallel, then synthesize.
-
-**Rationale**:
-- Eliminates semantic confusion in vector search
-- Enables focused retrieval per paper
-- Supports complex comparative analysis
-- Scales to N papers without architectural changes
-
-### 2. Hybrid Model Strategy
-
-**Decision**: Use Granite for decomposition, Llama for analysis.
-
-**Rationale**:
-- Granite: Conservative, structured output ideal for parsing
-- Llama: Superior reasoning for research comprehension
-- Task-optimized model selection
-- Efficient resource utilization
-
-### 3. Parquet Over Pickle
-
-**Decision**: Store processed chunks in Parquet format.
-
-**Rationale**:
-- Security: No code execution risks (unlike pickle)
-- Compatibility: Works across Python versions
-- Performance: Columnar storage for efficient queries
-- Compression: 50-70% smaller than JSON
-- Schema evolution: Add fields without breaking
-
-### 4. Local Embeddings
-
-**Decision**: Self-host embeddings instead of OpenAI API.
-
-**Rationale**:
-- Privacy: Papers never leave your infrastructure
-- Cost: No per-token charges
-- Control: Consistent model availability
-- Performance: No network latency
-
-### 5. Hierarchical Chunking
-
-**Decision**: Multi-level chunking with metadata preservation.
-
-**Rationale**:
-- Maintains document structure
-- Enables section-aware retrieval
-- Supports both broad and specific queries
-- Preserves context boundaries
-
-### 6. S3 for Document Storage
-
-**Decision**: Use S3 instead of local filesystem.
-
-**Rationale**:
-- Scalability: Unlimited storage capacity
-- Durability: 11 nines reliability
-- Accessibility: Access from any compute node
-- Versioning: Track document changes
-- Cost: Pay only for what you use
-
----
+**Note:** Requires NVIDIA GPU. For CPU-only inference, see the [CPU deployment guide](docs/cpu-deployment.md).
