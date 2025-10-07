@@ -4,6 +4,7 @@ from embeddings_module.embedder import LocalEmbedder
 import requests
 import json
 from typing import List, Dict
+from fastapi import HTTPException
 
 class BasicRAG:
     def __init__(self, vllm_url: str = "http://localhost:8000"):
@@ -52,7 +53,7 @@ Answer based on the context above:"""
     def _call_llm(self, prompt: str) -> str:
         """Call vLLM server"""
         payload = {
-            "model": "llama-3.1-8b-instruct",  # Adjust to match your model name
+            "model": "llama-3.1-8b-instruct",
             "messages": [
                 {"role": "user", "content": prompt}
             ],
@@ -61,17 +62,24 @@ Answer based on the context above:"""
         }
         
         try:
+            print(f"Calling vLLM at {self.vllm_url}/v1/chat/completions")
             response = requests.post(
                 f"{self.vllm_url}/v1/chat/completions",
                 json=payload,
                 timeout=30
             )
+            
+            print(f"vLLM Response Status: {response.status_code}")
+            print(f"vLLM Response: {response.text[:500]}")  # First 500 chars
+            
             response.raise_for_status()
             
             result = response.json()
             return result['choices'][0]['message']['content']
             
-        except requests.exceptions.ConnectionError:
-            return "Error: Could not connect to vLLM server. Make sure it's running on port 8000."
+        except requests.exceptions.ConnectionError as e:
+            print(f"Connection Error: {e}")
+            raise HTTPException(500, "Could not connect to vLLM server")
         except Exception as e:
-            return f"Error calling LLM: {str(e)}"
+            print(f"LLM Error: {type(e).__name__}: {e}")
+            raise HTTPException(500, f"LLM error: {str(e)}")
